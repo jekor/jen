@@ -1,14 +1,28 @@
+let
+  _nixpkgs = import <nixpkgs> { };
+in
+
+{ nixpkgs ? _nixpkgs.fetchgit {
+    url = "https://github.com/NixOS/nixpkgs.git";
+    rev = "d53213677dc414f7c0464dd09c8530c22a4d45b6";
+    sha256 = "211e649dc6dd850b8d5fff27f6645c10dc8b498a6586e2368bc7866b464d70aa";
+  }
+}:
+
+let
+  pkgs = if nixpkgs == null then _nixpkgs else import nixpkgs { };
+in
 {
   network.description = "jekor's network";
 
   www = {config, pkgs, ...}:
   let
-    fsrest = (pkgs.haskellPackages_ghc782.callPackage <fsrest> { }).build;
     toplevel = "/www/jekor.com";
-    jcoreutils = (import <jcoreutils> { buildLocalCabal = pkgs.haskellPackages.buildLocalCabal; }).build;
-    jigplate = (import <jigplate> { buildLocalCabal = pkgs.haskellPackages.buildLocalCabal; }).build;
-    jsonwrench = (import <jsonwrench> { buildLocalCabal = pkgs.haskellPackages.buildLocalCabal; }).build;
-    gressgraph = (import <gressgraph> { buildLocalCabal = pkgs.haskellPackages.buildLocalCabal; }).build;
+    fsrest = pkgs.haskellPackages.callPackage <fsrest> { };
+    jcoreutils = pkgs.haskellPackages.callPackage <jcoreutils> { };
+    jigplate = pkgs.haskellPackages.callPackage <jigplate> { };
+    jsonwrench = pkgs.haskellPackages.callPackage <jsonwrench> { };
+    gressgraph = pkgs.haskellPackages.callPackage <gressgraph> { };
     jekor-com = pkgs.callPackage <jekor.com> { inherit jcoreutils jigplate jsonwrench gressgraph toplevel; pandoc = pkgs.haskellPackages.pandoc; };
   in {
     imports = [
