@@ -1,11 +1,9 @@
 {
   www = {
     deployment.targetEnv = "hetzner";
-    deployment.hetzner.mainIPv4 = "88.198.63.90";
+    deployment.hetzner.mainIPv4 = "46.4.72.243";
     deployment.hetzner.partitions = ''
-      clearpart --all --initlabel --drives=sda,sdb
-
-      part swap --size=4096 --label=swap --fstype=swap --ondisk=sdb
+      clearpart --all --initlabel --drives=sda
 
       part / --fstype=ext4 --label=root --grow --ondisk=sda
     '';
