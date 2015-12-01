@@ -24,6 +24,7 @@ in
     jsonwrench = pkgs.haskellPackages.callPackage <jsonwrench> { };
     gressgraph = pkgs.haskellPackages.callPackage <gressgraph> { };
     jekor-com = pkgs.callPackage <jekor.com> { inherit jcoreutils jigplate jsonwrench gressgraph toplevel; pandoc = pkgs.haskellPackages.pandoc; };
+    minjs-com = pkgs.callPackage <minjs.com> { pygments = pkgs.pythonPackages.pygments; };
   in {
     imports = [
       ./common.nix
@@ -88,10 +89,24 @@ in
           }
         }
 
+        # For historical reasons, my site lives at jekor.com instead of www.jekor.com.
         # www.jekor.com -> jekor.com
         server {
           server_name www.jekor.com;
           return 301 $scheme://jekor.com$request_uri;
+        }
+
+        server {
+          server_name www.minjs.com;
+          location / {
+            root "${minjs-com}";
+          }
+        }
+
+        # minjs.com -> www.minjs.com
+        server {
+          server_name minjs.com;
+          return 301 $scheme://www.minjs.com$request_uri;
         }
       '';
     };
