@@ -24,7 +24,7 @@ in
     jsonwrench = pkgs.haskellPackages.callPackage <jsonwrench> { };
     gressgraph = pkgs.haskellPackages.callPackage <gressgraph> { };
     jekor-com = pkgs.callPackage <jekor.com> { inherit jcoreutils jigplate jsonwrench gressgraph toplevel; pandoc = pkgs.haskellPackages.pandoc; };
-    minjs-com = pkgs.callPackage <minjs.com> { pygments = pkgs.pythonPackages.pygments; };
+    minjs-com = pkgs.callPackage <minjs.com> { pygments = pkgs.pythonPackages.pygments; uglify = pkgs.nodePackages.uglify-js; };
   in {
     imports = [
       ./common.nix
