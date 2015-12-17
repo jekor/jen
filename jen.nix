@@ -1,31 +1,54 @@
+{ tld ? "com" }:
 let
-  _nixpkgs = import <nixpkgs> { };
-in
+  # To deal with an unusable (for me) release and master, I'm editing
+  # a checkout of nixpkgs.
+  pkgs = import ~/code/nixpkgs { system = "x86_64-linux"; };
+  hpkgs = pkgs.haskell.packages.ghc7102;
+  jinja27 = pkgs.buildPythonPackage rec {
+    name = "Jinja2-2.7";
 
-{ nixpkgs ? _nixpkgs.fetchgit {
-    url = "https://github.com/NixOS/nixpkgs.git";
-    rev = "d53213677dc414f7c0464dd09c8530c22a4d45b6";
-    sha256 = "211e649dc6dd850b8d5fff27f6645c10dc8b498a6586e2368bc7866b464d70aa";
-  }
-}:
+    src = pkgs.fetchurl {
+      url = "http://pypi.python.org/packages/source/J/Jinja2/${name}.tar.gz";
+      sha256 = "0kgsd7h27jl2jpqa1ks88h93z50bsg0yr7qkicqpxbl9s4c1aks7";
+    };
 
-let
-  pkgs = if nixpkgs == null then _nixpkgs else import nixpkgs { };
+    propagatedBuildInputs = with pkgs.pythonPackages; [ markupsafe ];
+  };
+  glue = pkgs.pythonPackages.buildPythonPackage rec {
+    name = "glue-0.11.1";
+
+    src = pkgs.fetchurl {
+      url = "https://pypi.python.org/packages/source/g/glue/glue-0.11.1.tar.gz";
+      md5 = "9b9c99a035339f1efbe40077e401d5f7";
+    };
+
+    propagatedBuildInputs = with pkgs.pythonPackages; [ pillow jinja27 ];
+
+    doCheck = false;
+  };
+  vocabulinkDomain = "vocabulink." + tld;
+  toplevel = "/www/jekor.com";
+  fsrest = hpkgs.callPackage <fsrest> { };
+  jcoreutils = hpkgs.callPackage <jcoreutils> { };
+  jigplate = hpkgs.callPackage <jigplate> { };
+  jsonwrench = hpkgs.callPackage <jsonwrench> { };
+  gressgraph = hpkgs.callPackage <gressgraph> { };
+  jekor-com = pkgs.callPackage <jekor.com> { inherit jcoreutils jigplate jsonwrench gressgraph toplevel; pandoc = pkgs.haskellPackages.pandoc; };
+  minjs-com = pkgs.callPackage <minjs.com> { pygments = pkgs.pythonPackages.pygments; uglify = pkgs.nodePackages.uglify-js; };
+  vocabulink-files = pkgs.callPackage <vocabulink> { uglify = pkgs.nodePackages.uglify-js;
+                                                     stylus = pkgs.nodePackages.stylus;
+                                                     glue = glue;
+                                                     domain = vocabulinkDomain; };
+  vocabulink = hpkgs.callPackage <vocabulink/hs> { postgresql = pkgs.postgresql;
+                                                   domain = vocabulinkDomain;
+                                                   vocabulink-sql = <vocabulink/vocabulink.sql>;
+                                                   static-manifest = "${vocabulink-files}/manifest"; };
 in
 {
-  network.description = "jekor's network";
+  network.description = "jen";
 
   www = {config, pkgs, ...}:
-  let
-    toplevel = "/www/jekor.com";
-    fsrest = pkgs.haskellPackages.callPackage <fsrest> { };
-    jcoreutils = pkgs.haskellPackages.callPackage <jcoreutils> { };
-    jigplate = pkgs.haskellPackages.callPackage <jigplate> { };
-    jsonwrench = pkgs.haskellPackages.callPackage <jsonwrench> { };
-    gressgraph = pkgs.haskellPackages.callPackage <gressgraph> { };
-    jekor-com = pkgs.callPackage <jekor.com> { inherit jcoreutils jigplate jsonwrench gressgraph toplevel; pandoc = pkgs.haskellPackages.pandoc; };
-    minjs-com = pkgs.callPackage <minjs.com> { pygments = pkgs.pythonPackages.pygments; uglify = pkgs.nodePackages.uglify-js; };
-  in {
+  {
     imports = [
       ./common.nix
       <fsrest/module.nix>
@@ -80,7 +103,7 @@ in
       enable = true;
       httpConfig = ''
         gzip on;
-        gzip_types text/plain text/css application/json application/javascript application/rss+xml;
+        gzip_types text/html text/plain text/css application/json application/javascript application/rss+xml;
 
         server {
           server_name jekor.com;
@@ -108,9 +131,108 @@ in
           server_name minjs.com;
           return 301 $scheme://www.minjs.com$request_uri;
         }
+
+        server {
+          listen 80;
+          listen 443 ssl;
+          server_name www.${vocabulinkDomain};
+          ssl_certificate ${./security + ("/www." + vocabulinkDomain + ".crt")};
+          ssl_certificate_key ${./security + ("/www." + vocabulinkDomain + ".key")};
+          location / {
+            proxy_pass http://localhost:8002/;
+            proxy_set_header Host $host;
+          }
+        }
+
+        server {
+          server_name s.${vocabulinkDomain};
+          location / {
+            proxy_pass http://localhost:8002/;
+            proxy_set_header Host $host;
+          }
+        }
+
+        # vocabulink.com -> www.vocabulink.com
+        server {
+          server_name ${vocabulinkDomain};
+          return 301 $scheme://www.${vocabulinkDomain}$request_uri;
+        }
+
       '';
     };
 
-    networking.firewall.allowedTCPPorts = [22 80];
+    services.lighttpd = {
+      enable = true;
+      configText = ''
+        server.port = 8002
+        server.username = "lighttpd"
+        server.groupname = "lighttpd"
+        server.modules = ("mod_scgi", "mod_redirect", "mod_accesslog", "mod_compress")
+        server.document-root = "/dev/null"
+        accesslog.use-syslog = "enable"
+        server.errorlog-use-syslog = "enable"
+
+        mimetype.assign = (
+          ".html" => "text/html; charset=utf-8",
+          ".css"  => "text/css; charset=utf-8",
+          ".js"   => "application/javascript; charset=utf-8",
+          ".gif"  => "image/gif",
+          ".jpg"  => "image/jpeg",
+          ".jpeg" => "image/jpeg",
+          ".png"  => "image/png",
+          ".mp3"  => "audio/mpeg",
+          ".ogg"  => "application/ogg"
+        )
+
+        $HTTP["host"] == "www.${vocabulinkDomain}" {
+          scgi.server = (
+            "/" => ((
+              "host" => "127.0.0.1",
+              "port" => 10033,
+              "check-local" => "disable"
+            ))
+          )
+        }
+        $HTTP["host"] == "s.${vocabulinkDomain}" {
+          server.document-root = "${vocabulink-files}"
+        }
+      '';
+    };
+
+    users.extraUsers.vocabulink = {
+      group = "nogroup";
+    };
+
+    services.postgresql = {
+      enable = true;
+      authentication = ''
+        local  all  all                trust
+        host   all  all  127.0.0.1/32  trust
+        host   all  all       ::1/128  trust
+      '';
+      initialScript = <vocabulink/vocabulink.sql>;
+    };
+
+    systemd.services.vocabulink = {
+      after = [ "fsrest.service" ];
+      wantedBy = [ "lighttpd.service" ];
+      serviceConfig = {
+        ExecStart = ''${vocabulink}/bin/vocabulink.cgi ${vocabulink-files} ${pkgs.ssmtp}/bin/sendmail ${builtins.readFile (./security + ("/" + vocabulinkDomain + ".token.key"))}'';
+        User = "vocabulink";
+        Group = "nogroup";
+      };
+    };
+
+    networking.defaultMailServer = {
+      directDelivery = true;
+      hostName = "email-smtp.us-east-1.amazonaws.com";
+      useTLS = true;
+      useSTARTTLS = true;
+      root = "jekor@jekor.com";
+      authUser = builtins.readFile ./security/ses-user;
+      authPass = builtins.readFile ./security/ses-password;
+    };
+
+    networking.firewall.allowedTCPPorts = [22 80 443];
   };
 }

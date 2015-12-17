@@ -14,6 +14,8 @@
     openssh.authorizedKeys.keyFiles = [ (./. + "/jekor.pub") ];
   };
 
+  services.openssh.enable = true;
+
   environment.systemPackages = [
     pkgs.atool
     pkgs.atop

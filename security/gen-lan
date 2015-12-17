@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+openssl req -x509 -newkey rsa:2048 -keyout www.vocabulink.lan.key -nodes -out www.vocabulink.lan.crt -days 3650 -subj "/O=Vocabulink/CN=www.vocabulink.lan"
