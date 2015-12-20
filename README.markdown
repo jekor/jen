@@ -29,4 +29,6 @@ nixops set-args --arg tld \"lan\" -d jen-vbox
 
 Now setup the search path for extras that jen uses. You can see them in `jen.nix` (`<fsrest>`, `<jcoreutils>`, etc.). It can be as simple as:
 
+```
 NIX_PATH="$NIX_PATH:$HOME/path/to/repos"
+```
