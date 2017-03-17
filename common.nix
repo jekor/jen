@@ -38,4 +38,8 @@
     pkgs.tree
     pkgs.wget
   ];
+
+  environment.etc = {
+    "tmux.conf".source = ./tmux.conf;
+  };
 }
