@@ -27,8 +27,8 @@ nixops create -d jen-vbox jen.nix jen-vbox.nix
 nixops set-args --arg tld \"lan\" -d jen-vbox
 ```
 
-Now setup the search path for extras that jen uses. You can see them in `jen.nix` (`<fsrest>`, `<jcoreutils>`, etc.). It can be as simple as:
+To create an OVH deployment:
 
 ```
-NIX_PATH="$NIX_PATH:$HOME/path/to/repos"
+nixops create -d jen jen.nix jen-ovh.nix
 ```

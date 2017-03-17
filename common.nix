@@ -13,8 +13,13 @@
     uid = 1001;
     openssh.authorizedKeys.keyFiles = [ (./. + "/jekor.pub") ];
   };
+  users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ (./. + "/jekor.pub") ];
 
-  services.openssh.enable = true;
+  services.openssh = {
+    enable = true;
+    permitRootLogin = "yes";
+    passwordAuthentication = false;
+  };
 
   environment.systemPackages = [
     pkgs.atool

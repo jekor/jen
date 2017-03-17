@@ -2,9 +2,10 @@
 let
   # To deal with an unusable (for me) release and master, I'm editing
   # a checkout of nixpkgs.
-  pkgs = import ~/code/nixpkgs { system = "x86_64-linux"; };
+  pkgs = import ~/code/nixpkgs-jen { system = "x86_64-linux"; };
+  # hpkgs = pkgs.haskellPackages;
   hpkgs = pkgs.haskell.packages.ghc7102;
-  jinja27 = pkgs.buildPythonPackage rec {
+  jinja27 = pkgs.pythonPackages.buildPythonPackage rec {
     name = "Jinja2-2.7";
 
     src = pkgs.fetchurl {
@@ -27,23 +28,23 @@ let
     doCheck = false;
   };
   vocabulinkDomain = "vocabulink." + tld;
-  fsrest = hpkgs.callPackage <fsrest> { };
-  jcoreutils = hpkgs.callPackage <jcoreutils> { };
-  jigplate = hpkgs.callPackage <jigplate> { };
-  jsonwrench = hpkgs.callPackage <jsonwrench> { };
-  gressgraph = hpkgs.callPackage <gressgraph> { };
-  jekor-com = pkgs.callPackage <jekor.com> { inherit jcoreutils jigplate jsonwrench gressgraph; pandoc = pkgs.haskellPackages.pandoc; };
-  minjs-com = pkgs.callPackage <minjs.com> { pygments = pkgs.pythonPackages.pygments; uglify = pkgs.nodePackages.uglify-js; };
-  jekos-net = pkgs.callPackage <jekos.net> { };
-  vocabulink-files = pkgs.callPackage <vocabulink> { uglify = pkgs.nodePackages.uglify-js;
-                                                     stylus = pkgs.nodePackages.stylus;
-                                                     glue = glue;
-                                                     domain = vocabulinkDomain; };
-  vocabulink = hpkgs.callPackage <vocabulink/hs> { postgresql = pkgs.postgresql;
-                                                   templatepg = hpkgs.callPackage <templatepg> { };
-                                                   domain = vocabulinkDomain;
-                                                   vocabulink-sql = <vocabulink/vocabulink.sql>;
-                                                   static-manifest = "${vocabulink-files}/manifest"; };
+  fsrest = hpkgs.callPackage ../fsrest { };
+  jcoreutils = hpkgs.callPackage ../jcoreutils { };
+  jigplate = hpkgs.callPackage ../jigplate { };
+  jsonwrench = hpkgs.callPackage ../jsonwrench { };
+  gressgraph = hpkgs.callPackage ../gressgraph { };
+  jekor-com = pkgs.callPackage ../jekor.com { inherit jcoreutils jigplate jsonwrench gressgraph; pandoc = pkgs.haskellPackages.pandoc; };
+  minjs-com = pkgs.callPackage ../minjs.com { pygments = pkgs.pythonPackages.pygments; uglify = pkgs.nodePackages.uglify-js; };
+  vocabulink-files = pkgs.callPackage ../vocabulink { uglify = pkgs.nodePackages.uglify-js;
+                                                      stylus = pkgs.nodePackages.stylus;
+                                                      glue = glue;
+                                                      domain = vocabulinkDomain; };
+  vocabulink = hpkgs.callPackage ../vocabulink/hs { postgresql = pkgs.postgresql;
+                                                    templatepg = hpkgs.callPackage ../templatepg { };
+                                                    sscgi = hpkgs.callPackage ../sscgi { };
+                                                    domain = vocabulinkDomain;
+                                                    vocabulink-sql = ../vocabulink/vocabulink.sql;
+                                                    static-manifest = "${vocabulink-files}/manifest"; };
   # Because of the way I designed my site (for fsrest), modifications happen
   # within the www directory. This is not possible with my site in the
   # Nix store (nor desirable), so for now I'm using a union mount to combine
@@ -86,14 +87,14 @@ in
   {
     imports = [
       ./common.nix
-      <fsrest/module.nix>
+      ../fsrest/module.nix
     ];
 
     system.fsPackages = [ pkgs.unionfs-fuse ];
 
     systemd.services.jekor-com-mount = www-mount "jekor.com" jekor-com config.ids.uids.wwwrun;
-    systemd.services.jekos-net-mount = www-mount "jekos.net" jekos-net config.ids.uids.wwwrun;
 
+    networking.enableIPv6 = false;
     services.fsrest = {
       enable = true;
       package = fsrest;
@@ -161,14 +162,6 @@ in
           server_name ${vocabulinkDomain};
           return 301 $scheme://www.${vocabulinkDomain}$request_uri;
         }
-
-        server {
-          server_name jekos.net;
-          location / {
-            proxy_pass http://localhost:8001/;
-            proxy_set_header Host $host;
-          }
-        }
       '';
     };
 
@@ -221,7 +214,7 @@ in
         host   all  all  127.0.0.1/32  trust
         host   all  all       ::1/128  trust
       '';
-      initialScript = <vocabulink/vocabulink.sql>;
+      initialScript = ../vocabulink/vocabulink.sql;
     };
 
     systemd.services.vocabulink = {
@@ -247,10 +240,8 @@ in
     networking.firewall.allowedTCPPorts = [22 80 443];
     networking.firewall.allowedUDPPorts = [53];
 
-    services.tinydns = {
-      enable = true;
-      listenIp = "0.0.0.0";
-      root = "/var/tinydns";
-    };
+  networking.extraHosts = ''
+127.0.0.1 localhost
+  '';
   };
 }
